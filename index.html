@@ -2,300 +2,603 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="description" content="AR-сцена з писанкою для дітей">
-    <title>🥚«Писанка» 🎨</title>
-
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@6.1.1/dist/aframe-extras.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🥚 Писанка на долоні 🎨</title>
     
     <style>
-        html, body {
+        * {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background: transparent;
+            box-sizing: border-box;
+            touch-action: manipulation;
         }
         
-        a-scene {
-            width: 100% !important;
-            height: 100% !important;
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            font-family: 'Comic Neue', 'Comic Sans MS', cursive, sans-serif;
+            color: white;
+        }
+        
+        #video, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        #video { z-index: 1; display: none; }
+        #canvas { z-index: 2; display: none; }
+        
+        #loading {
             position: fixed;
             top: 0;
             left: 0;
-            background: transparent;
-        }
-
-        .arjs-loader {
-            height: 100%;
             width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background: rgba(135, 206, 235, 0.2);
-            z-index: 9999;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            color: #FF4500;
-            font-size: 1.8em;
+            justify-content: center;
+            z-index: 1000;
+            color: white;
             text-align: center;
             padding: 20px;
-            box-sizing: border-box;
-            font-family: 'Comic Neue', 'Comic Sans MS', cursive, sans-serif;
         }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+        
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
         }
-
-        .pulse { animation: pulse 1.5s infinite; }
-
+        
         .controls {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10000;
+            z-index: 100;
             display: flex;
             gap: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
         }
-
-        .sound-btn, .youtube-btn {
-            padding: 10px 20px;
+        
+        .control-btn {
+            padding: 12px 20px;
             border: none;
             border-radius: 15px;
             cursor: pointer;
-            font-family: 'Comic Neue', 'Comic Sans MS', cursive, sans-serif;
+            font-family: inherit;
             font-size: 1em;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            min-width: 120px;
         }
-
-        .sound-btn { background-color: #4CAF50; color: white; }
-        .sound-btn.off { background-color: #f44336; }
-        .youtube-btn { background-color: #FF9800; color: white; }
-        .youtube-btn:hover { background-color: #FFB300; }
+        
+        .control-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-btn.off {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+        
+        .youtube-btn {
+            background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #status {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #FFD700;
+            padding: 12px 25px;
+            border-radius: 20px;
+            font-size: 1.2em;
+            z-index: 99;
+            text-align: center;
+            border: 2px solid #FFD700;
+            display: none;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+        }
+        
+        #eggInfo {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            z-index: 98;
+            text-align: center;
+            border: 2px solid #FF69B4;
+            display: none;
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+        }
+        
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
     </style>
 </head>
 <body>
-    <div class="arjs-loader" id="loader">
-        <div class="pulse">🥚 Писанка на долоні 🎨</div>
-        <div style="margin-top: 20px; font-size: 1.2em;">Наведи камеру на маркер! 😊🎨</div>
+    <div id="loading">
+        <div class="loader"></div>
+        <div style="font-size: 1.5em; margin-bottom: 10px;" class="pulse">🥚 Завантаження Писанки...</div>
+        <p style="margin-top: 20px; color: rgba(255,255,255,0.9);">Покажіть долоню камері</p>
     </div>
 
-    <a-scene
-        mindar-image="imageTargetSrc: ./my-marker.mind;"
-        vr-mode-ui="enabled: false"
-        device-orientation-permission-ui="enabled: false"
-        loading-screen="enabled: false"
-        embedded
-        renderer="colorManagement: true; physicallyCorrectLights: true;"
-        touch-gestures
-    >
-        <a-assets>
-            <audio id="bg-music" src="./bg-music.mp3" preload="auto" loop></audio>
-            <img id="pisanka-texture-1" src="./pisanka-1.jpg">
-            <img id="pisanka-texture-2" src="./pisanka-2.jpg">
-            <img id="pisanka-texture-3" src="./pisanka-3.jpg">
-            <img id="pisanka-texture-4" src="./pisanka-4.jpg">
-        </a-assets>
-
-        <a-camera
-            id="camera"
-            position="0 0 1.5"
-            look-controls="enabled: false"
-        ></a-camera>
-
-        <a-entity mindar-image-target="targetIndex: 0">
-            <a-sphere
-                id="pisanka"
-                position="0 0 -0.5"
-                radius="0.4"
-                scale="0.6 1 0.6"
-                src="#pisanka-texture-1"
-                visible="false"
-                material="opacity: 1; transparent: false"
-            >
-                <a-animation
-                    attribute="rotation"
-                    to="0 360 0"
-                    dur="5000"
-                    repeat="indefinite"
-                ></a-animation>
-            </a-sphere>
-        </a-entity>
-    </a-scene>
+    <video id="video" playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    
+    <div id="status">👋 Покажіть долоню камері</div>
+    <div id="eggInfo">🎨 Писанка з'явиться на вашій долоні!</div>
 
     <div class="controls">
-        <button id="sound-btn" class="sound-btn">Увімкнути звук</button>
-        <button id="next-btn" class="sound-btn">Далі ➡️</button>
-        <a href="https://www.youtube.com/playlist?list=PL6UDFwT9TzFw5K8Tzu_OgsDz7vV3N9eY-" target="_blank" class="youtube-btn">YouTube SmartLessa</a>
+        <button id="sound-btn" class="control-btn">🔊 Увімкнути звук</button>
+        <button id="next-btn" class="control-btn">🎨 Наступна писанка</button>
+        <a href="https://www.youtube.com/playlist?list=PL6UDFwT9TzFw5K8Tzu_OgsDz7vV3N9eY-" target="_blank" class="control-btn youtube-btn">📺 SmartLessa</a>
     </div>
 
-    <script>
-        // Адаптивність для повного екрану
-        function fixHeight() {
-            document.body.style.height = window.innerHeight + 'px';
-        }
-        fixHeight();
-        window.addEventListener('resize', fixHeight);
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+        import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm";
 
-        // Посилання на елементи
-        const loader = document.querySelector('#loader');
-        const targetEntity = document.querySelector('[mindar-image-target]');
-        const pisanka = document.querySelector('#pisanka');
-        const bgMusic = document.querySelector('#bg-music');
-        const soundBtn = document.querySelector('#sound-btn');
-        const nextBtn = document.querySelector('#next-btn');
+        const CONFIG = {
+            HAND_SMOOTHING: 0.7,
+            EGG_SCALE: 0.15,
+            EGG_HEIGHT_OFFSET: 0.2,
+            ROTATION_SPEED: 0.5,
+            DEBUG_MODE: false
+        };
 
-        // Масив з ідентифікаторами текстур
-        const pisankaTextures = ['#pisanka-texture-1', '#pisanka-texture-2', '#pisanka-texture-3', '#pisanka-texture-4'];
-        let currentTextureIndex = 0;
+        const state = {
+            landmarks: null,
+            isHandVisible: false,
+            handFrames: 0,
+            audioContext: null,
+            animationId: null,
+            pisankaTextures: [],
+            currentTextureIndex: 0,
+            egg: null,
+            eggGroup: null,
+            isSoundOn: false
+        };
 
-        // Перевірка завантаження текстур
-        pisankaTextures.forEach(id => {
-            const textureEl = document.querySelector(id);
-            if (textureEl) {
-                textureEl.addEventListener('load', () => {
-                    console.log(`Текстура ${id} успішно завантажена`);
+        const elements = {
+            video: document.getElementById('video'),
+            canvas: document.getElementById('canvas'),
+            loading: document.getElementById('loading'),
+            status: document.getElementById('status'),
+            eggInfo: document.getElementById('eggInfo'),
+            soundBtn: document.getElementById('sound-btn'),
+            nextBtn: document.getElementById('next-btn')
+        };
+
+        let scene, camera, renderer;
+        let handLandmarker;
+        let bgMusic = new Audio('./bg-music.mp3');
+        bgMusic.loop = true;
+
+        class PisankaARApp {
+            constructor() {
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.setupCamera();
+                    await this.initThreeJS();
+                    await this.initHandTracking();
+                    this.setupEventListeners();
+                    this.hideLoading();
+                    this.startAnimation();
+                } catch (error) {
+                    console.error('Помилка ініціалізації:', error);
+                    this.showError('Перезавантажте сторінку та дозвольте доступ до камері');
+                }
+            }
+
+            async setupCamera() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    elements.video.srcObject = stream;
+                    await new Promise(resolve => {
+                        elements.video.onloadedmetadata = () => {
+                            elements.video.play();
+                            resolve();
+                        };
+                    });
+                } catch (error) {
+                    throw new Error('Не вдалося отримати доступ до камері');
+                }
+            }
+
+            async initThreeJS() {
+                scene = new THREE.Scene();
+                scene.fog = new THREE.Fog(0x764ba2, 1, 10);
+                
+                camera = new THREE.PerspectiveCamera(
+                    60, 
+                    window.innerWidth / window.innerHeight, 
+                    0.1, 
+                    1000
+                );
+                camera.position.set(0, 0, 5);
+                
+                renderer = new THREE.WebGLRenderer({
+                    canvas: elements.canvas,
+                    alpha: true,
+                    antialias: true
                 });
-                textureEl.addEventListener('error', () => {
-                    console.error(`Помилка завантаження текстури ${id}`);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+                directionalLight.position.set(5, 10, 7);
+                scene.add(directionalLight);
+                
+                await this.createPisanka();
+            }
+
+            async createPisanka() {
+                state.eggGroup = new THREE.Group();
+                scene.add(state.eggGroup);
+                
+                const eggGeometry = new THREE.SphereGeometry(1, 32, 32);
+                eggGeometry.scale(0.6, 1, 0.6);
+                
+                state.pisankaTextures = await this.loadTextures([
+                    './pisanka-1.jpg',
+                    './pisanka-2.jpg',
+                    './pisanka-3.jpg',
+                    './pisanka-4.jpg'
+                ]);
+                
+                const eggMaterial = new THREE.MeshPhongMaterial({
+                    map: state.pisankaTextures[0],
+                    shininess: 100,
+                    specular: 0x333333
+                });
+                
+                state.egg = new THREE.Mesh(eggGeometry, eggMaterial);
+                state.egg.scale.set(CONFIG.EGG_SCALE, CONFIG.EGG_SCALE, CONFIG.EGG_SCALE);
+                state.eggGroup.add(state.egg);
+                
+                const glowGeometry = new THREE.SphereGeometry(1.1, 32, 32);
+                glowGeometry.scale(0.62, 1.05, 0.62);
+                
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xFFD700,
+                    transparent: true,
+                    opacity: 0.3,
+                    side: THREE.BackSide
+                });
+                
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                state.eggGroup.add(glow);
+                
+                state.eggGroup.visible = false;
+            }
+
+            async loadTextures(urls) {
+                const textures = [];
+                const loader = new THREE.TextureLoader();
+                
+                for (const url of urls) {
+                    try {
+                        const texture = await new Promise((resolve, reject) => {
+                            loader.load(url, resolve, undefined, reject);
+                        });
+                        textures.push(texture);
+                    } catch (error) {
+                        console.warn(`Не вдалося завантажити текстуру: ${url}`);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 512;
+                        canvas.height = 512;
+                        const ctx = canvas.getContext('2d');
+                        
+                        const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+                        gradient.addColorStop(0, '#ff6b6b');
+                        gradient.addColorStop(0.5, '#4ecdc4');
+                        gradient.addColorStop(1, '#45b7d1');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(0, 0, 512, 512);
+                        
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 100px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('🥚', 256, 256);
+                        
+                        const fallbackTexture = new THREE.CanvasTexture(canvas);
+                        textures.push(fallbackTexture);
+                    }
+                }
+                return textures;
+            }
+
+            async initHandTracking() {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 1
                 });
             }
-        });
 
-        // Компонент для обробки сенсорних жестів (реєструється перед його використанням в HTML)
-        AFRAME.registerComponent('touch-gestures', {
-            schema: {
-                minScale: { type: 'number', default: 0.2 },
-                maxScale: { type: 'number', default: 3.0 },
-                rotationSpeed: { type: 'number', default: 2.0 }
-            },
-            init: function () {
-                this.isRotating = false;
-                this.isPinching = false;
-                this.startPos = { x: 0, y: 0 };
-                this.currentScale = 1;
-                this.pisanka = document.querySelector('#pisanka');
-
-                if (!this.pisanka) {
-                    console.error('Писанка не знайдена в компоненті touch-gestures');
-                    return;
-                }
-
-                this.el.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if (e.touches.length === 1) {
-                        this.isRotating = true;
-                        this.startPos.x = e.touches[0].pageX;
-                        this.startPos.y = e.touches[0].pageY;
-                    } else if (e.touches.length === 2) {
-                        this.isPinching = true;
-                        this.isRotating = false;
-                        this.initialDistance = Math.hypot(
-                            e.touches[0].pageX - e.touches[1].pageX,
-                            e.touches[0].pageY - e.touches[1].pageY
-                        );
-                        this.currentScale = this.pisanka.object3D.scale.x;
+            setupEventListeners() {
+                elements.soundBtn.addEventListener('click', () => this.toggleSound());
+                elements.nextBtn.addEventListener('click', () => this.nextTexture());
+                window.addEventListener('resize', () => this.onWindowResize());
+                
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'd' || e.key === 'D') {
+                        CONFIG.DEBUG_MODE = !CONFIG.DEBUG_MODE;
+                        elements.eggInfo.style.display = CONFIG.DEBUG_MODE ? 'block' : 'none';
                     }
                 });
-
-                this.el.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    if (this.isPinching && e.touches.length === 2) {
-                        const currentDistance = Math.hypot(
-                            e.touches[0].pageX - e.touches[1].pageX,
-                            e.touches[0].pageY - e.touches[1].pageY
-                        );
-                        const scaleFactor = currentDistance / this.initialDistance;
-                        const newScale = Math.max(this.data.minScale, Math.min(this.data.maxScale, this.currentScale * scaleFactor));
-                        const eggScaleX = newScale * 0.6;
-                        const eggScaleY = newScale * 1;
-                        const eggScaleZ = newScale * 0.6;
-                        this.pisanka.object3D.scale.set(eggScaleX, eggScaleY, eggScaleZ);
-                    } else if (this.isRotating && e.touches.length === 1) {
-                        const deltaX = (e.touches[0].pageX - this.startPos.x) * this.data.rotationSpeed;
-                        const deltaY = (e.touches[0].pageY - this.startPos.y) * this.data.rotationSpeed;
-                        this.pisanka.object3D.rotation.y += THREE.MathUtils.degToRad(deltaX);
-                        this.pisanka.object3D.rotation.x += THREE.MathUtils.degToRad(deltaY);
-                        this.startPos.x = e.touches[0].pageX;
-                        this.startPos.y = e.touches[0].pageY;
-                    }
+                
+                let isDragging = false;
+                let previousMousePosition = { x: 0, y: 0 };
+                let scale = 1;
+                
+                elements.canvas.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
                 });
-
-                this.el.addEventListener('touchend', () => {
-                    this.isRotating = false;
-                    this.isPinching = false;
+                
+                elements.canvas.addEventListener('mousemove', (e) => {
+                    if (!isDragging || !state.eggGroup.visible) return;
+                    
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    
+                    state.eggGroup.rotation.y += deltaX * 0.01;
+                    state.eggGroup.rotation.x += deltaY * 0.01;
+                    
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                });
+                
+                elements.canvas.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+                
+                elements.canvas.addEventListener('wheel', (e) => {
+                    if (!state.eggGroup.visible) return;
+                    
+                    e.preventDefault();
+                    scale += e.deltaY * -0.001;
+                    scale = Math.min(Math.max(0.5, scale), 3);
+                    state.eggGroup.scale.setScalar(scale * CONFIG.EGG_SCALE);
                 });
             }
-        });
 
-        // Логіка відстеження маркера
-        if (targetEntity) {
-            targetEntity.addEventListener('targetFound', () => {
-                console.log("🎯 Маркер знайдено! Писанка з'явилася.");
-                loader.style.display = 'none';
-                if (pisanka) {
-                    pisanka.setAttribute('visible', 'true');
-                    console.log("Писанка видима:", pisanka.getAttribute('visible'));
-                    pisanka.components.animation.pause();
+            toggleSound() {
+                if (state.isSoundOn) {
+                    bgMusic.pause();
+                    elements.soundBtn.classList.add('off');
+                    elements.soundBtn.textContent = '🔇 Увімкнути звук';
+                } else {
+                    bgMusic.play().catch(e => console.log("Помилка відтворення музики:", e));
+                    elements.soundBtn.classList.remove('off');
+                    elements.soundBtn.textContent = '🔊 Вимкнути звук';
                 }
-                if (bgMusic && bgMusic.paused) {
-                    bgMusic.play().catch(e => console.log("🔇 Помилка відтворення музики:", e));
-                    soundBtn.classList.remove('off');
-                    soundBtn.textContent = 'Вимкнути звук';
-                }
-            });
+                state.isSoundOn = !state.isSoundOn;
+            }
 
-            targetEntity.addEventListener('targetLost', () => {
-                console.log("ℹ️ Маркер втрачено.");
-                if (pisanka) {
-                    pisanka.setAttribute('visible', 'false');
-                    console.log("Писанка невидима:", pisanka.getAttribute('visible'));
-                    pisanka.components.animation.play();
-                }
-                if (bgMusic && !bgMusic.paused) bgMusic.pause();
-                loader.style.display = 'flex';
-                loader.querySelector('.pulse').textContent = '🥚 Писанка на долоні 🎨';
-                loader.querySelector('div[style]').textContent = 'Наведи камеру на маркер! 😊🎨';
-            });
-        } else {
-            console.error('Елемент mindar-image-target не знайдено!');
-        }
+            nextTexture() {
+                if (!state.egg || !state.pisankaTextures.length) return;
+                
+                state.currentTextureIndex = (state.currentTextureIndex + 1) % state.pisankaTextures.length;
+                state.egg.material.map = state.pisankaTextures[state.currentTextureIndex];
+                state.egg.material.needsUpdate = true;
+                
+                elements.eggInfo.innerHTML = `🎨 Писанка ${state.currentTextureIndex + 1}/${state.pisankaTextures.length}<br>Обертайте та масштабуйте!`;
+                elements.eggInfo.style.display = 'block';
+                
+                setTimeout(() => {
+                    if (state.isHandVisible) {
+                        elements.eggInfo.style.display = 'none';
+                    }
+                }, 2000);
+            }
 
-        // Обробка кнопки звуку
-        soundBtn.addEventListener('click', () => {
-            if (bgMusic.paused) {
-                bgMusic.play().catch(e => console.log("🔇 Помилка відтворення музики:", e));
-                soundBtn.classList.remove('off');
-                soundBtn.textContent = 'Вимкнути звук';
-            } else {
+            startAnimation() {
+                const animate = () => {
+                    this.update();
+                    this.render();
+                    state.animationId = requestAnimationFrame(animate.bind(this));
+                };
+                animate();
+            }
+
+            update() {
+                this.detectHand();
+                
+                if (state.landmarks && state.isHandVisible) {
+                    this.updateEggPosition();
+                    
+                    if (!state.eggGroup.visible) {
+                        state.eggGroup.visible = true;
+                        elements.status.style.display = 'none';
+                        elements.eggInfo.style.display = 'block';
+                        elements.eggInfo.innerHTML = '🥚 Писанка на вашій долоні!<br>Обертайте та масштабуйте!';
+                        
+                        setTimeout(() => {
+                            if (state.isHandVisible) {
+                                elements.eggInfo.style.display = 'none';
+                            }
+                        }, 3000);
+                    }
+                    
+                    state.eggGroup.rotation.y += CONFIG.ROTATION_SPEED * 0.01;
+                } else {
+                    if (state.eggGroup.visible) {
+                        state.eggGroup.visible = false;
+                        elements.status.style.display = 'block';
+                        elements.eggInfo.style.display = 'none';
+                    }
+                    
+                    if (state.handFrames > 30) {
+                        elements.status.textContent = '👋 Покажіть долоню камері';
+                        elements.status.style.display = 'block';
+                    }
+                }
+            }
+
+            detectHand() {
+                if (!handLandmarker || elements.video.readyState < 2) return;
+                
+                try {
+                    const results = handLandmarker.detectForVideo(elements.video, performance.now());
+                    
+                    if (results.landmarks && results.landmarks.length > 0) {
+                        state.landmarks = results.landmarks[0];
+                        state.isHandVisible = true;
+                        state.handFrames = 0;
+                    } else {
+                        state.landmarks = null;
+                        state.isHandVisible = false;
+                        state.handFrames++;
+                    }
+                } catch (error) {
+                    console.error('Помилка розпізнавання руки:', error);
+                }
+            }
+
+            updateEggPosition() {
+                if (!state.landmarks) return;
+                
+                const points = [0, 5, 9, 13, 17];
+                let centerX = 0, centerY = 0, centerZ = 0;
+                
+                for (const idx of points) {
+                    centerX += state.landmarks[idx].x;
+                    centerY += state.landmarks[idx].y;
+                    centerZ += state.landmarks[idx].z || 0;
+                }
+                
+                centerX /= points.length;
+                centerY /= points.length;
+                centerZ /= points.length;
+                
+                const x = (centerX - 0.5) * 10;
+                const y = (0.5 - centerY) * 8 + CONFIG.EGG_HEIGHT_OFFSET;
+                const z = (centerZ - 0.5) * 5;
+                
+                if (state.eggGroup) {
+                    state.eggGroup.position.set(x, y, z);
+                    state.eggGroup.lookAt(camera.position);
+                }
+            }
+
+            render() {
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
+                }
+            }
+
+            onWindowResize() {
+                if (camera && renderer) {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
+            }
+
+            hideLoading() {
+                elements.loading.style.display = 'none';
+                elements.video.style.display = 'block';
+                elements.canvas.style.display = 'block';
+                elements.status.style.display = 'block';
+            }
+
+            showError(message) {
+                elements.loading.innerHTML = `
+                    <div style="color: #ff6b6b; font-size: 28px; margin-bottom: 20px;">😕</div>
+                    <div style="font-size: 18px; margin-bottom: 20px;">${message}</div>
+                    <button onclick="location.reload()" style="padding: 14px 28px; background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 16px;">
+                        Спробувати знову
+                    </button>
+                `;
+            }
+
+            cleanup() {
+                if (state.animationId) cancelAnimationFrame(state.animationId);
+                if (elements.video.srcObject) {
+                    elements.video.srcObject.getTracks().forEach(track => track.stop());
+                }
+                if (handLandmarker) handLandmarker.close();
+                if (state.audioContext) state.audioContext.close();
                 bgMusic.pause();
-                soundBtn.classList.add('off');
-                soundBtn.textContent = 'Увімкнути звук';
             }
-        });
+        }
 
-        // Обробка кнопки "Далі"
-        nextBtn.addEventListener('click', () => {
-            currentTextureIndex = (currentTextureIndex + 1) % pisankaTextures.length;
-            pisanka.setAttribute('src', pisankaTextures[currentTextureIndex]);
-            console.log(`🖼️ Змінено текстуру на: ${pisankaTextures[currentTextureIndex]}`);
+        window.addEventListener('DOMContentLoaded', () => {
+            const app = new PisankaARApp();
+            window.addEventListener('beforeunload', () => app.cleanup());
         });
     </script>
 </body>
 </html>
-
-
-
-
-
 
