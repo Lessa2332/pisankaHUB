@@ -154,15 +154,6 @@
         .pulse {
             animation: pulse 2s infinite;
         }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-        
-        .float {
-            animation: float 3s ease-in-out infinite;
-        }
     </style>
 </head>
 <body>
@@ -190,10 +181,10 @@
 
         const CONFIG = {
             HAND_SMOOTHING: 0.7,
-            EGG_SCALE: 0.15,
-            EGG_HEIGHT_OFFSET: 0.2,
-            ROTATION_SPEED: 0.5,
-            DEBUG_MODE: false
+            EGG_SCALE: 0.2,
+            EGG_HEIGHT_OFFSET: 0.3,
+            ROTATION_SPEED: 0.3,
+            DEBUG_MODE: true
         };
 
         const state = {
@@ -206,7 +197,15 @@
             currentTextureIndex: 0,
             egg: null,
             eggGroup: null,
-            isSoundOn: false
+            isSoundOn: false,
+            textureUrls: [
+                'pisanka.jpg',
+                'pisanka-1.jpg',
+                'pisanka-2.jpg', 
+                'pisanka-3.jpg',
+                'pisanka-4.jpg',
+                'pisanka-5.jpg'
+            ]
         };
 
         const elements = {
@@ -266,7 +265,7 @@
 
             async initThreeJS() {
                 scene = new THREE.Scene();
-                scene.fog = new THREE.Fog(0x764ba2, 1, 10);
+                scene.background = null;
                 
                 camera = new THREE.PerspectiveCamera(
                     60, 
@@ -279,16 +278,20 @@
                 renderer = new THREE.WebGLRenderer({
                     canvas: elements.canvas,
                     alpha: true,
-                    antialias: true
+                    antialias: true,
+                    premultipliedAlpha: false
                 });
                 renderer.setSize(window.innerWidth, window.innerHeight);
-                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.setClearColor(0x000000, 0);
                 
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                // Освітлення
+                const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
                 scene.add(ambientLight);
                 
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
                 directionalLight.position.set(5, 10, 7);
+                directionalLight.castShadow = true;
                 scene.add(directionalLight);
                 
                 await this.createPisanka();
@@ -298,97 +301,111 @@
                 state.eggGroup = new THREE.Group();
                 scene.add(state.eggGroup);
                 
-                // Створюємо яйцеподібну форму
-                const eggGeometry = new THREE.SphereGeometry(1, 32, 32);
-                eggGeometry.scale(0.6, 1, 0.6);
+                // Створюємо яйцеподібну геометрію
+                const eggGeometry = this.createEggGeometry();
                 
-                // Завантажуємо всі доступні текстури писанок з репозиторію
-                state.pisankaTextures = await this.loadTextures([
-                    'pisanka-1.jpg',
-                    'pisanka-2.jpg',
-                    'pisanka-3.jpg',
-                    'pisanka-4.jpg',
-                    'pisanka-5.jpg',
-                    'pisanka.jpg'  // основний файл писанки
-                ]);
+                // Завантажуємо текстури
+                await this.loadTextures();
                 
-                // Використовуємо першу текстуру
-                const eggMaterial = new THREE.MeshPhongMaterial({
+                // Створюємо основний матеріал для писанки
+                const eggMaterial = new THREE.MeshStandardMaterial({
                     map: state.pisankaTextures[0],
-                    shininess: 100,
-                    specular: 0x333333,
-                    side: THREE.DoubleSide
+                    color: 0xffffff,
+                    roughness: 0.3,
+                    metalness: 0.1,
+                    transparent: false,
+                    opacity: 1,
+                    side: THREE.DoubleSide,
+                    alphaTest: 0.1
                 });
                 
+                // Створюємо меш писанки
                 state.egg = new THREE.Mesh(eggGeometry, eggMaterial);
                 state.egg.scale.set(CONFIG.EGG_SCALE, CONFIG.EGG_SCALE, CONFIG.EGG_SCALE);
+                state.egg.castShadow = true;
+                state.egg.receiveShadow = true;
                 state.eggGroup.add(state.egg);
                 
-                // Додаємо ефект світіння навколо писанки
-                const glowGeometry = new THREE.SphereGeometry(1.1, 32, 32);
-                glowGeometry.scale(0.62, 1.05, 0.62);
+                // Додаємо підсвічування навколо писанки
+                this.createEggGlow();
                 
-                const glowMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xFFD700,
-                    transparent: true,
-                    opacity: 0.3,
-                    side: THREE.BackSide
-                });
-                
-                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-                state.eggGroup.add(glow);
-                
-                // Додаємо підставку для писанки
-                const standGeometry = new THREE.CylinderGeometry(0.07, 0.1, 0.05, 8);
-                const standMaterial = new THREE.MeshPhongMaterial({
-                    color: 0x8B4513,
-                    shininess: 30
-                });
-                const stand = new THREE.Mesh(standGeometry, standMaterial);
-                stand.position.y = -0.12;
-                state.eggGroup.add(stand);
+                // Додаємо підставку
+                this.createStand();
                 
                 state.eggGroup.visible = false;
                 
-                console.log(`✅ Завантажено ${state.pisankaTextures.length} текстур писанок`);
+                console.log('✅ Писанка створена');
             }
 
-            async loadTextures(urls) {
-                const textures = [];
+            createEggGeometry() {
+                const segments = 32;
+                const geometry = new THREE.SphereGeometry(1, segments, segments);
+                
+                // Робимо форму більш яйцеподібною
+                const positions = geometry.attributes.position;
+                for (let i = 0; i < positions.count; i++) {
+                    const x = positions.getX(i);
+                    const y = positions.getY(i);
+                    const z = positions.getZ(i);
+                    
+                    // Вертикальне стиснення
+                    let scaleY = 1.4;
+                    // Горизонтальне стиснення
+                    let scaleX = 0.7;
+                    let scaleZ = 0.7;
+                    
+                    // Робимо верх округлішим
+                    if (y > 0.5) {
+                        scaleY = 1.6;
+                    }
+                    
+                    positions.setX(i, x * scaleX);
+                    positions.setY(i, y * scaleY);
+                    positions.setZ(i, z * scaleZ);
+                }
+                
+                geometry.computeVertexNormals();
+                return geometry;
+            }
+
+            async loadTextures() {
+                state.pisankaTextures = [];
                 const loader = new THREE.TextureLoader();
                 
-                for (const url of urls) {
+                for (const url of state.textureUrls) {
                     try {
                         const texture = await new Promise((resolve, reject) => {
                             loader.load(
                                 url,
                                 (tex) => {
+                                    tex.wrapS = THREE.RepeatWrapping;
+                                    tex.wrapT = THREE.RepeatWrapping;
                                     tex.colorSpace = THREE.SRGBColorSpace;
+                                    tex.flipY = false;
+                                    console.log(`✅ Завантажено: ${url}`);
                                     resolve(tex);
                                 },
                                 undefined,
                                 (err) => {
-                                    console.warn(`⚠️ Не вдалося завантажити текстуру: ${url}`, err);
+                                    console.warn(`⚠️ Помилка завантаження: ${url}`);
                                     reject(err);
                                 }
                             );
                         });
-                        textures.push(texture);
-                        console.log(`✅ Завантажено текстуру: ${url}`);
+                        state.pisankaTextures.push(texture);
                     } catch (error) {
-                        console.warn(`⏭️ Пропускаємо текстуру: ${url}`);
-                        // Створюємо запасну текстуру
+                        console.log(`Створюю запасну текстуру для: ${url}`);
                         const fallbackTexture = this.createFallbackTexture();
-                        textures.push(fallbackTexture);
+                        state.pisankaTextures.push(fallbackTexture);
                     }
                 }
                 
-                // Якщо не вдалося завантажити жодну текстуру, створюємо ще одну запасну
-                if (textures.length === 0) {
-                    textures.push(this.createFallbackTexture());
+                if (state.pisankaTextures.length === 0) {
+                    console.log('Створюю останню запасну текстуру');
+                    state.pisankaTextures.push(this.createFallbackTexture());
                 }
                 
-                return textures;
+                console.log(`Завантажено ${state.pisankaTextures.length} текстур`);
             }
 
             createFallbackTexture() {
@@ -397,55 +414,94 @@
                 canvas.height = 1024;
                 const ctx = canvas.getContext('2d');
                 
-                // Градієнтний фон
-                const gradient = ctx.createLinearGradient(0, 0, 1024, 1024);
-                gradient.addColorStop(0, '#ff6b6b');
-                gradient.addColorStop(0.3, '#4ecdc4');
-                gradient.addColorStop(0.6, '#45b7d1');
-                gradient.addColorStop(1, '#96c93d');
-                ctx.fillStyle = gradient;
+                // Заповнюємо білим фоном
+                ctx.fillStyle = '#FFFFFF';
                 ctx.fillRect(0, 0, 1024, 1024);
                 
-                // Традиційні візерунки писанки
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 20;
+                // Малюємо яскравий український візерунок
+                const colors = ['#0057B7', '#FFD700', '#FF0000', '#00FF00', '#FF00FF'];
                 
-                // Круги
+                // Великий центральний круг
+                ctx.fillStyle = colors[0];
                 ctx.beginPath();
-                ctx.arc(512, 512, 300, 0, Math.PI * 2);
-                ctx.stroke();
-                
-                ctx.beginPath();
-                ctx.arc(512, 512, 200, 0, Math.PI * 2);
-                ctx.stroke();
-                
-                // Хрест
-                ctx.beginPath();
-                ctx.moveTo(512, 212);
-                ctx.lineTo(512, 812);
-                ctx.stroke();
-                
-                ctx.beginPath();
-                ctx.moveTo(212, 512);
-                ctx.lineTo(812, 512);
-                ctx.stroke();
-                
-                // Сонце
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.arc(512, 512, 80, 0, Math.PI * 2);
+                ctx.arc(512, 512, 400, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Текст
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 80px Arial';
+                // Другий круг
+                ctx.fillStyle = colors[1];
+                ctx.beginPath();
+                ctx.arc(512, 512, 350, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Хрест
+                ctx.fillStyle = colors[2];
+                ctx.fillRect(462, 212, 100, 600);
+                ctx.fillRect(212, 462, 600, 100);
+                
+                // Текстурні точки
+                ctx.fillStyle = colors[3];
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * 1024;
+                    const y = Math.random() * 1024;
+                    const radius = Math.random() * 30 + 10;
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Емблема яйця
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 200px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🥚', 512, 512);
                 
                 const texture = new THREE.CanvasTexture(canvas);
                 texture.colorSpace = THREE.SRGBColorSpace;
+                texture.flipY = false;
                 return texture;
+            }
+
+            createEggGlow() {
+                const glowGeometry = new THREE.SphereGeometry(1.05, 32, 32);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xFFD700,
+                    transparent: true,
+                    opacity: 0.15,
+                    side: THREE.BackSide,
+                    depthWrite: false
+                });
+                
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                glow.scale.set(0.65, 1.08, 0.65);
+                state.eggGroup.add(glow);
+            }
+
+            createStand() {
+                const standGeometry = new THREE.CylinderGeometry(0.08, 0.12, 0.08, 16);
+                const standMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x8B4513,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+                
+                const stand = new THREE.Mesh(standGeometry, standMaterial);
+                stand.position.y = -0.15;
+                stand.castShadow = true;
+                stand.receiveShadow = true;
+                state.eggGroup.add(stand);
+                
+                // Додаємо трошки деталей до підставки
+                const ringGeometry = new THREE.TorusGeometry(0.1, 0.02, 8, 16);
+                const ringMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xD2691E,
+                    roughness: 0.5
+                });
+                
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.y = -0.11;
+                ring.rotation.x = Math.PI / 2;
+                state.eggGroup.add(ring);
             }
 
             async initHandTracking() {
@@ -468,53 +524,49 @@
                 elements.nextBtn.addEventListener('click', () => this.nextTexture());
                 window.addEventListener('resize', () => this.onWindowResize());
                 
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'd' || e.key === 'D') {
-                        CONFIG.DEBUG_MODE = !CONFIG.DEBUG_MODE;
-                        elements.eggInfo.style.display = CONFIG.DEBUG_MODE ? 'block' : 'none';
-                    }
-                });
+                // Обробка тач жестов на мобільних пристроях
+                let touchStartX = 0;
+                let touchStartY = 0;
+                let isTouching = false;
                 
-                let isDragging = false;
-                let previousMousePosition = { x: 0, y: 0 };
-                let scale = 1;
-                
-                elements.canvas.addEventListener('mousedown', (e) => {
+                elements.canvas.addEventListener('touchstart', (e) => {
                     if (!state.eggGroup.visible) return;
-                    isDragging = true;
-                    previousMousePosition = { x: e.clientX, y: e.clientY };
-                    elements.canvas.style.cursor = 'grabbing';
+                    e.preventDefault();
+                    isTouching = true;
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
                 });
                 
-                elements.canvas.addEventListener('mousemove', (e) => {
-                    if (!isDragging || !state.eggGroup.visible) return;
+                elements.canvas.addEventListener('touchmove', (e) => {
+                    if (!isTouching || !state.eggGroup.visible) return;
+                    e.preventDefault();
                     
-                    const deltaX = e.clientX - previousMousePosition.x;
-                    const deltaY = e.clientY - previousMousePosition.y;
+                    const touchX = e.touches[0].clientX;
+                    const touchY = e.touches[0].clientY;
+                    
+                    const deltaX = touchX - touchStartX;
+                    const deltaY = touchY - touchStartY;
                     
                     state.eggGroup.rotation.y += deltaX * 0.01;
                     state.eggGroup.rotation.x += deltaY * 0.01;
                     
-                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                    touchStartX = touchX;
+                    touchStartY = touchY;
                 });
                 
-                elements.canvas.addEventListener('mouseup', () => {
-                    isDragging = false;
-                    elements.canvas.style.cursor = 'grab';
+                elements.canvas.addEventListener('touchend', () => {
+                    isTouching = false;
                 });
                 
-                elements.canvas.addEventListener('mouseenter', () => {
-                    if (state.eggGroup.visible) {
-                        elements.canvas.style.cursor = 'grab';
-                    }
-                });
-                
+                // Обробка скролу для масштабування
                 elements.canvas.addEventListener('wheel', (e) => {
                     if (!state.eggGroup.visible) return;
-                    
                     e.preventDefault();
+                    
+                    let scale = state.eggGroup.scale.x / CONFIG.EGG_SCALE;
                     scale += e.deltaY * -0.001;
-                    scale = Math.min(Math.max(0.5, scale), 3);
+                    scale = Math.max(0.3, Math.min(3, scale));
+                    
                     state.eggGroup.scale.setScalar(scale * CONFIG.EGG_SCALE);
                 });
             }
@@ -525,7 +577,11 @@
                     elements.soundBtn.classList.add('off');
                     elements.soundBtn.textContent = '🔇 Увімкнути звук';
                 } else {
-                    bgMusic.play().catch(e => console.log("Помилка відтворення музики:", e));
+                    bgMusic.volume = 0.5;
+                    bgMusic.play().catch(e => {
+                        console.log("Помилка відтворення музики:", e);
+                        elements.soundBtn.textContent = '🔇 Помилка звуку';
+                    });
                     elements.soundBtn.classList.remove('off');
                     elements.soundBtn.textContent = '🔊 Вимкнути звук';
                 }
@@ -533,20 +589,21 @@
             }
 
             nextTexture() {
-                if (!state.egg || !state.pisankaTextures.length) return;
+                if (!state.egg || state.pisankaTextures.length === 0) {
+                    console.log('Немає доступних текстур');
+                    return;
+                }
                 
                 state.currentTextureIndex = (state.currentTextureIndex + 1) % state.pisankaTextures.length;
                 state.egg.material.map = state.pisankaTextures[state.currentTextureIndex];
                 state.egg.material.needsUpdate = true;
                 
-                elements.eggInfo.innerHTML = `🎨 Писанка ${state.currentTextureIndex + 1}/${state.pisankaTextures.length}<br>Обертайте та масштабуйте!`;
+                elements.eggInfo.innerHTML = `🎨 Писанка ${state.currentTextureIndex + 1}/${state.pisankaTextures.length}`;
                 elements.eggInfo.style.display = 'block';
                 
                 setTimeout(() => {
-                    if (state.isHandVisible) {
-                        elements.eggInfo.style.display = 'none';
-                    }
-                }, 2000);
+                    elements.eggInfo.style.display = 'none';
+                }, 1500);
             }
 
             startAnimation() {
@@ -568,21 +625,20 @@
                         state.eggGroup.visible = true;
                         elements.status.style.display = 'none';
                         elements.eggInfo.style.display = 'block';
-                        elements.eggInfo.innerHTML = '🥚 Писанка на вашій долоні!<br>Обертайте та масштабуйте!';
+                        elements.eggInfo.innerHTML = '🥚 Писанка на вашій долоні!';
                         
                         setTimeout(() => {
-                            if (state.isHandVisible) {
-                                elements.eggInfo.style.display = 'none';
-                            }
-                        }, 3000);
+                            elements.eggInfo.style.display = 'none';
+                        }, 2000);
                     }
                     
-                    // Плавне обертання писанки
+                    // Плавне обертання
                     state.eggGroup.rotation.y += CONFIG.ROTATION_SPEED * 0.01;
                     
-                    // Легке плавання вгору-вниз
-                    const floatOffset = Math.sin(Date.now() * 0.002) * 0.02;
-                    state.eggGroup.position.y += floatOffset;
+                    // Легка пульсація
+                    const pulse = Math.sin(Date.now() * 0.002) * 0.02 + 1;
+                    state.eggGroup.scale.setScalar(pulse * CONFIG.EGG_SCALE);
+                    
                 } else {
                     if (state.eggGroup.visible) {
                         state.eggGroup.visible = false;
@@ -592,7 +648,6 @@
                     
                     if (state.handFrames > 30) {
                         elements.status.textContent = '👋 Покажіть долоню камері';
-                        elements.status.style.display = 'block';
                     }
                 }
             }
@@ -620,33 +675,24 @@
             updateEggPosition() {
                 if (!state.landmarks) return;
                 
-                // Використовуємо центральні точки долоні для позиціонування
-                const points = [0, 5, 9, 13, 17];
-                let centerX = 0, centerY = 0, centerZ = 0;
+                // Використовуємо точку центру долоні (пальцева основа)
+                const centerX = state.landmarks[9].x;
+                const centerY = state.landmarks[9].y;
+                const centerZ = state.landmarks[9].z || 0;
                 
-                for (const idx of points) {
-                    centerX += state.landmarks[idx].x;
-                    centerY += state.landmarks[idx].y;
-                    centerZ += state.landmarks[idx].z || 0;
-                }
-                
-                centerX /= points.length;
-                centerY /= points.length;
-                centerZ /= points.length;
-                
-                // Конвертуємо координати з Mediapipe в Three.js координати
-                const x = (centerX - 0.5) * 10;
-                const y = (0.5 - centerY) * 8 + CONFIG.EGG_HEIGHT_OFFSET;
-                const z = (centerZ - 0.5) * 5;
+                // Конвертація координат
+                const x = (centerX - 0.5) * 8;
+                const y = (0.5 - centerY) * 6 + CONFIG.EGG_HEIGHT_OFFSET;
+                const z = (centerZ - 0.5) * 3;
                 
                 if (state.eggGroup) {
-                    // Плавна інтерполяція позиції
+                    // Плавна інтерполяція
                     state.eggGroup.position.x += (x - state.eggGroup.position.x) * CONFIG.HAND_SMOOTHING;
                     state.eggGroup.position.y += (y - state.eggGroup.position.y) * CONFIG.HAND_SMOOTHING;
                     state.eggGroup.position.z += (z - state.eggGroup.position.z) * CONFIG.HAND_SMOOTHING;
                     
-                    // Завжди повертаємось до камери
-                    state.eggGroup.lookAt(camera.position);
+                    // Орієнтація до камери
+                    state.eggGroup.lookAt(camera.position.x, camera.position.y, camera.position.z);
                 }
             }
 
